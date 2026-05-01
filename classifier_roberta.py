@@ -137,6 +137,8 @@ def main() -> None:
 
     t0 = time.perf_counter()
     tokenizer = AutoTokenizer.from_pretrained(args.model)
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
     print(f"[timing] AutoTokenizer.from_pretrained: {time.perf_counter() - t0:.2f}s")
 
     t0 = time.perf_counter()
@@ -154,7 +156,13 @@ def main() -> None:
 
     def make_loader(X: List[str], y: List[int], shuffle: bool) -> DataLoader:
         ds = HeadlineDataset(X, y, tokenizer, args.max_len)
-        return DataLoader(ds, batch_size=args.batch, shuffle=shuffle, pin_memory=pin)
+        return DataLoader(
+            ds,
+            batch_size=args.batch,
+            shuffle=shuffle,
+            pin_memory=pin,
+            num_workers=0,
+        )
 
     train_loader = make_loader(X_train, y_train, True)
     val_loader = make_loader(X_val, y_val, False)
