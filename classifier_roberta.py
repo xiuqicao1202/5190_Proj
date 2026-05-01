@@ -5,8 +5,15 @@ h = RoBERTa(x)，ˆy = softmax(W h + b)。依赖 transformers。
 from __future__ import annotations
 
 import argparse
+import time
 from pathlib import Path
 from typing import List
+
+try:
+    from tqdm.auto import tqdm
+except ImportError:
+    def tqdm(iterable, **kwargs):  # type: ignore[misc,redef]
+        return iterable
 
 import numpy as np
 import pandas as pd
@@ -61,6 +68,8 @@ def main() -> None:
     args = ap.parse_args()
 
     torch.manual_seed(args.seed)
+
+    t0 = time.perf_counter()
     df = pd.read_csv(args.csv)
     texts = df["headline"].fillna("").astype(str).tolist()
     labels = [label_from_url(str(u)) for u in df["url"].tolist()]
@@ -71,11 +80,23 @@ def main() -> None:
     X_val, X_test, y_val, y_test = train_test_split(
         X_temp, y_temp, test_size=2 / 3, random_state=args.seed, stratify=np.array(y_temp)
     )
+    print(f"[timing] CSV read + stratified split: {time.perf_counter() - t0:.2f}s")
+    print(f"[data] train={len(X_train)} val={len(X_val)} test={len(X_test)}")
 
+    t0 = time.perf_counter()
     tokenizer = AutoTokenizer.from_pretrained(args.model)
+    print(f"[timing] AutoTokenizer.from_pretrained: {time.perf_counter() - t0:.2f}s")
+
+    t0 = time.perf_counter()
     model = AutoModelForSequenceClassification.from_pretrained(args.model, num_labels=2)
+    print(f"[timing] AutoModelForSequenceClassification.from_pretrained: {time.perf_counter() - t0:.2f}s")
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
+    if device.type == "cuda":
+        print(f"[device] CUDA — {torch.cuda.get_device_name(0)} (device_count={torch.cuda.device_count()})")
+    else:
+        print("[device] CPU (torch.cuda.is_available() is False)")
 
     def make_loader(X: List[str], y: List[int], shuffle: bool) -> DataLoader:
         ds = HeadlineDataset(X, y, tokenizer, args.max_len)
@@ -89,9 +110,17 @@ def main() -> None:
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr)
     sched = get_linear_schedule_with_warmup(opt, int(0.06 * steps), steps)
 
-    for _ in range(args.epochs):
+    train_all_t0 = time.perf_counter()
+    for epoch in range(args.epochs):
         model.train()
-        for batch in train_loader:
+        epoch_t0 = time.perf_counter()
+        pbar = tqdm(
+            train_loader,
+            desc=f"train epoch {epoch + 1}/{args.epochs}",
+            unit="batch",
+            leave=True,
+        )
+        for batch in pbar:
             opt.zero_grad()
             out = model(
                 input_ids=batch["input_ids"].to(device),
@@ -101,14 +130,18 @@ def main() -> None:
             out.loss.backward()
             opt.step()
             sched.step()
+            pbar.set_postfix(loss=f"{out.loss.item():.4f}")
+        print(f"[timing] train epoch {epoch + 1}/{args.epochs}: {time.perf_counter() - epoch_t0:.2f}s")
+    print(f"[timing] all training epochs: {time.perf_counter() - train_all_t0:.2f}s")
 
-    def evaluate(loader: DataLoader) -> tuple[float, float]:
+    def evaluate(name: str, loader: DataLoader) -> tuple[float, float]:
         model.eval()
         correct = 0
         total = 0
         tp = fp = fn = 0
+        ev_t0 = time.perf_counter()
         with torch.no_grad():
-            for batch in loader:
+            for batch in tqdm(loader, desc=f"eval {name}", unit="batch", leave=True):
                 labels = batch["labels"].to(device)
                 logits = model(
                     input_ids=batch["input_ids"].to(device),
@@ -120,12 +153,13 @@ def main() -> None:
                 tp += ((pred == 1) & (labels == 1)).sum().item()
                 fp += ((pred == 1) & (labels == 0)).sum().item()
                 fn += ((pred == 0) & (labels == 1)).sum().item()
+        print(f"[timing] evaluate {name}: {time.perf_counter() - ev_t0:.2f}s")
         acc = correct / max(1, total)
         f1 = 2 * tp / (2 * tp + fp + fn + 1e-8)
         return acc, f1
 
     for name, loader in [("val", val_loader), ("test", test_loader)]:
-        acc, f1 = evaluate(loader)
+        acc, f1 = evaluate(name, loader)
         print(f"{name}: accuracy={acc:.4f} f1_fox={f1:.4f}")
 
 
