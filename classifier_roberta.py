@@ -5,6 +5,7 @@ h = RoBERTa(x)，ˆy = softmax(W h + b)。依赖 transformers。
 from __future__ import annotations
 
 import argparse
+import os
 import time
 from pathlib import Path
 from typing import List
@@ -29,6 +30,51 @@ except ImportError as e:
 
 def label_from_url(url: str) -> int:
     return 1 if "foxnews.com" in url.lower() else 0
+
+
+def _in_wsl() -> bool:
+    if os.environ.get("WSL_DISTRO_NAME") or os.environ.get("WSL_INTEROP"):
+        return True
+    try:
+        with open("/proc/version", encoding="utf-8") as f:
+            return "microsoft" in f.read().lower()
+    except OSError:
+        return False
+
+
+def _print_cuda_install_hints() -> None:
+    print("[hint] WSL2：在 Windows 上安装支持 WSL 的最新 NVIDIA 驱动；在发行版里执行 `nvidia-smi` 应能看到 GPU。")
+    print("[hint] PyTorch 需安装 **CUDA 版** wheel（CPU 版会一直 cuda_available=False）。示例：")
+    print('       pip3 install torch --index-url https://download.pytorch.org/whl/cu124')
+    print("       （版本号请对照 https://pytorch.org/get-started/locally/ ）")
+
+
+def _print_cuda_diagnostics() -> None:
+    print(f"[diag] torch={torch.__version__!r}  torch.version.cuda={torch.version.cuda!r}")
+    if torch.version.cuda is None:
+        print("[diag] 当前 PyTorch 很可能是 **CPU 构建**，需换用带 CUDA 的安装包。")
+    if _in_wsl() and not torch.cuda.is_available():
+        _print_cuda_install_hints()
+
+
+def resolve_torch_device(mode: str) -> torch.device:
+    m = mode.lower().strip()
+    if m == "cpu":
+        return torch.device("cpu")
+    if m == "cuda":
+        if not torch.cuda.is_available():
+            print("[error] 请求 --device cuda，但 torch.cuda.is_available() 为 False。")
+            _print_cuda_diagnostics()
+            raise SystemExit(1)
+        return torch.device("cuda")
+    if m != "auto":
+        raise ValueError(f"unknown device mode: {mode!r}")
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    dev = torch.device("cpu")
+    print("[device] auto → CPU（未检测到可用 CUDA）")
+    _print_cuda_diagnostics()
+    return dev
 
 
 class HeadlineDataset(Dataset):
@@ -65,6 +111,12 @@ def main() -> None:
     ap.add_argument("--lr", type=float, default=2e-5)
     ap.add_argument("--max-len", type=int, default=128)
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument(
+        "--device",
+        choices=("auto", "cuda", "cpu"),
+        default="auto",
+        help="auto：有 CUDA 则用 GPU；cuda：强制 GPU（不可用则退出）；cpu：强制 CPU",
+    )
     args = ap.parse_args()
 
     torch.manual_seed(args.seed)
@@ -91,16 +143,18 @@ def main() -> None:
     model = AutoModelForSequenceClassification.from_pretrained(args.model, num_labels=2)
     print(f"[timing] AutoModelForSequenceClassification.from_pretrained: {time.perf_counter() - t0:.2f}s")
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = resolve_torch_device(args.device)
     model.to(device)
     if device.type == "cuda":
         print(f"[device] CUDA — {torch.cuda.get_device_name(0)} (device_count={torch.cuda.device_count()})")
-    else:
-        print("[device] CPU (torch.cuda.is_available() is False)")
+    elif args.device == "cpu":
+        print("[device] CPU（--device cpu）")
+
+    pin = device.type == "cuda"
 
     def make_loader(X: List[str], y: List[int], shuffle: bool) -> DataLoader:
         ds = HeadlineDataset(X, y, tokenizer, args.max_len)
-        return DataLoader(ds, batch_size=args.batch, shuffle=shuffle)
+        return DataLoader(ds, batch_size=args.batch, shuffle=shuffle, pin_memory=pin)
 
     train_loader = make_loader(X_train, y_train, True)
     val_loader = make_loader(X_val, y_val, False)
