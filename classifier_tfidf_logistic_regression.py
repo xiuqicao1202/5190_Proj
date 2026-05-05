@@ -1,19 +1,23 @@
 """
-TF-IDF + Logistic Regression（报告 2.3.1）
-ˆy = σ(w^T v + b)，二元交叉熵损失。
+TF-IDF + Logistic Regression (Report 2.3.1)
+ŷ = σ(w^T v + b), binary cross-entropy loss.
 """
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 from typing import List, Tuple
 
+import joblib
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, f1_score
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
+
+from param_storage import copy_script_source, finetune_base, finetune_prefix, project_root, write_training_txt
 
 
 def label_from_url(url: str) -> str:
@@ -31,7 +35,7 @@ def load_xy(csv_path: Path) -> Tuple[List[str], List[str]]:
         labels = [label_from_url(str(u)) for u in df["url"].tolist()]
         return texts, labels
     raise ValueError(
-        "CSV 需要包含 (headline, url) 或 (processed_title, label)，当前列: "
+        "CSV must contain (headline, url) or (processed_title, label) columns. Current columns: "
         + ", ".join(map(str, df.columns))
     )
 
@@ -51,7 +55,16 @@ def main() -> None:
     p.add_argument("--max-features", type=int, default=20000)
     p.add_argument("--C", type=float, default=1.0)
     p.add_argument("--seed", type=int, default=42)
+    p.add_argument(
+        "--project-dir",
+        type=Path,
+        default=None,
+        help="Project directory containing Pretrained_Params/ and Finetune_Params/; defaults to script directory.",
+    )
     args = p.parse_args()
+
+    proj = project_root(args.project_dir, script_dir=Path(__file__).parent)
+    print(f"[paths] project={proj} (TF-IDF does not use any external pretrained weights, only saved to Finetune_Params/)")
 
     X, y = load_xy(args.csv)
     X_train, X_temp, y_train, y_temp = train_test_split(X, y, test_size=0.3, random_state=args.seed, stratify=y)
@@ -61,11 +74,37 @@ def main() -> None:
     model = build_model(args.max_features, args.C)
     model.fit(X_train, y_train)
 
+    metrics: dict = {}
     for name, Xt, yt in [("val", X_val, y_val), ("test", X_test, y_test)]:
         pred = model.predict(Xt)
         acc = accuracy_score(yt, pred)
         f1 = f1_score(yt, pred, pos_label="FoxNews", average="binary")
+        metrics[name] = {"accuracy": acc, "f1_fox": f1}
         print(f"{name}: accuracy={acc:.4f} f1_fox={f1:.4f}")
+
+    prefix = finetune_prefix(Path(__file__).stem)
+    run_dir = finetune_base(proj) / prefix
+    run_dir.mkdir(parents=True, exist_ok=True)
+    weights_path = run_dir / f"{prefix}_pipeline.joblib"
+    joblib.dump(model, weights_path)
+    meta_py = Path(__file__).resolve()
+    write_training_txt(
+        run_dir / f"{prefix}.txt",
+        {
+            "timestamp_and_comment": f"prefix={prefix}",
+            "command_line": " ".join(sys.argv),
+            "training_hyperparameters": {
+                "csv": str(args.csv.resolve()),
+                "max_features": args.max_features,
+                "C": args.C,
+                "seed": args.seed,
+            },
+            "validation_and_test_metrics": metrics,
+            "saved_files": {"pipeline_joblib": str(weights_path)},
+        },
+    )
+    copy_script_source(meta_py, run_dir / f"{prefix}.py")
+    print(f"[save] Finetune_Params/{prefix}/ model weights, {prefix}.txt, and {prefix}.py have been saved.")
 
 
 if __name__ == "__main__":

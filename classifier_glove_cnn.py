@@ -1,11 +1,12 @@
 """
-GloVe + CNN（报告 2.3.1）
-E ∈ R^{T×k}，1D 卷积 + ReLU，max pooling，线性层 ˆy = σ(w^T h + b)。
+GloVe + CNN (Report 2.3.1)
+E ∈ R^{T×k}, 1D convolution + ReLU, max pooling, linear layer ŷ = σ(w^T h + b).
 """
 from __future__ import annotations
 
 import argparse
 import os
+import sys
 import time
 from pathlib import Path
 from typing import Dict, List
@@ -16,6 +17,17 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from sklearn.model_selection import train_test_split
+
+from param_storage import (
+    copy_script_source,
+    default_glove_txt,
+    ensure_glove_100d,
+    finetune_base,
+    finetune_prefix,
+    project_root,
+    resolve_glove_txt,
+    write_training_txt,
+)
 
 
 def label_from_url(url: str) -> int:
@@ -33,16 +45,16 @@ def _in_wsl() -> bool:
 
 
 def _print_cuda_install_hints() -> None:
-    print("[hint] WSL2：在 Windows 上安装支持 WSL 的最新 NVIDIA 驱动；在发行版里执行 `nvidia-smi` 应能看到 GPU。")
-    print("[hint] PyTorch 需安装 **CUDA 版** wheel（CPU 版会一直 cuda_available=False）。示例：")
+    print("[hint] For WSL2: Install the latest NVIDIA driver for Windows with WSL support; running `nvidia-smi` in your distribution should allow you to see the GPU.")
+    print("[hint] PyTorch requires the **CUDA version** wheel (CPU version will always have cuda_available=False). Example:")
     print('       pip3 install torch --index-url https://download.pytorch.org/whl/cu124')
-    print("       （版本号请对照 https://pytorch.org/get-started/locally/ ）")
+    print("       (Please check the version at https://pytorch.org/get-started/locally/ )")
 
 
 def _print_cuda_diagnostics() -> None:
     print(f"[diag] torch={torch.__version__!r}  torch.version.cuda={torch.version.cuda!r}")
     if torch.version.cuda is None:
-        print("[diag] 当前 PyTorch 很可能是 **CPU 构建**，需换用带 CUDA 的安装包。")
+        print("[diag] Your current PyTorch installation is probably a **CPU build**. You need to install a CUDA-enabled package.")
     if _in_wsl() and not torch.cuda.is_available():
         _print_cuda_install_hints()
 
@@ -53,7 +65,7 @@ def resolve_torch_device(mode: str) -> torch.device:
         return torch.device("cpu")
     if m == "cuda":
         if not torch.cuda.is_available():
-            print("[error] 请求 --device cuda，但 torch.cuda.is_available() 为 False。")
+            print("[error] --device cuda requested, but torch.cuda.is_available() is False.")
             _print_cuda_diagnostics()
             raise SystemExit(1)
         return torch.device("cuda")
@@ -62,7 +74,7 @@ def resolve_torch_device(mode: str) -> torch.device:
     if torch.cuda.is_available():
         return torch.device("cuda")
     dev = torch.device("cpu")
-    print("[device] auto → CPU（未检测到可用 CUDA）")
+    print("[device] auto → CPU (no available CUDA detected)")
     _print_cuda_diagnostics()
     return dev
 
@@ -132,7 +144,18 @@ class GloveCNN(nn.Module):
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--csv", type=Path, default=Path(__file__).parent / "Newsheadlines" / "url_with_headlines.csv")
-    ap.add_argument("--glove", type=Path, default=Path("glove.6B.100d.txt"))
+    ap.add_argument("--glove", type=Path, default=None, help="Path to GloVe file; default is Pretrained_Params/glove/glove.6B.100d.txt")
+    ap.add_argument(
+        "--skip-glove-download",
+        action="store_true",
+        help="Do not auto-download: exit if glove.6B.100d.txt is missing (default: auto-download glove.6B.zip if needed)",
+    )
+    ap.add_argument(
+        "--project-dir",
+        type=Path,
+        default=None,
+        help="Directory containing Pretrained_Params/ and Finetune_Params/; defaults to the script directory",
+    )
     ap.add_argument("--filters", type=int, default=100)
     ap.add_argument("--epochs", type=int, default=15)
     ap.add_argument("--batch", type=int, default=64)
@@ -143,9 +166,14 @@ def main() -> None:
         "--device",
         choices=("auto", "cuda", "cpu"),
         default="auto",
-        help="auto：有 CUDA 用 GPU；cuda：强制 GPU；cpu：强制 CPU",
+        help="auto: Use GPU if CUDA is available; cuda: force GPU; cpu: force CPU",
     )
     args = ap.parse_args()
+
+    proj = project_root(args.project_dir, script_dir=Path(__file__).parent)
+    glove_txt = resolve_glove_txt(proj, args.glove)
+    ensure_glove_100d(glove_txt, auto_download=not args.skip_glove_download)
+    print(f"[paths] project={proj}\n        GloVe -> {glove_txt}")
 
     torch.manual_seed(args.seed)
     if torch.cuda.is_available():
@@ -155,7 +183,7 @@ def main() -> None:
     if device.type == "cuda":
         print(f"[device] CUDA — {torch.cuda.get_device_name(0)} (device_count={torch.cuda.device_count()})")
     elif args.device == "cpu":
-        print("[device] CPU（--device cpu）")
+        print("[device] CPU (--device cpu)")
 
     t0 = time.perf_counter()
     df = pd.read_csv(args.csv)
@@ -181,13 +209,13 @@ def main() -> None:
     mat = np.random.randn(n_vocab, dim).astype(np.float32) * 0.01
     mat[vocab["<pad>"]] = 0.0
 
-    if args.glove.is_file():
-        glove = load_glove_map(args.glove, dim)
+    if glove_txt.is_file():
+        glove = load_glove_map(glove_txt, dim)
         for w, i in vocab.items():
             if w in glove:
                 mat[i] = glove[w]
     else:
-        print(f"未找到 GloVe 文件 {args.glove}，使用随机初始化嵌入。")
+        print(f"GloVe file {glove_txt} not found, using randomly initialized embeddings.")
 
     emb = torch.tensor(mat)
     kernel_sizes = [3, 4, 5]
@@ -219,6 +247,7 @@ def main() -> None:
     print(f"[timing] all training epochs: {time.perf_counter() - train_all_t0:.2f}s")
 
     model.eval()
+    metrics: dict = {}
     with torch.no_grad():
         for name, Xs, yt_cpu in [("val", X_val, y_val_t), ("test", X_test, y_test_t)]:
             ev_t0 = time.perf_counter()
@@ -236,8 +265,50 @@ def main() -> None:
             fp = ((pred == 1) & (yt == 0)).sum().item()
             fn = ((pred == 0) & (yt == 1)).sum().item()
             f1 = 2 * tp / (2 * tp + fp + fn + 1e-8)
+            metrics[name] = {"accuracy": acc, "f1_fox": f1}
             print(f"[timing] evaluate {name}: {time.perf_counter() - ev_t0:.2f}s")
             print(f"{name}: accuracy={acc:.4f} f1_fox={f1:.4f}")
+
+    prefix = finetune_prefix(Path(__file__).stem)
+    run_dir = finetune_base(proj) / prefix
+    run_dir.mkdir(parents=True, exist_ok=True)
+    ck_path = run_dir / f"{prefix}_checkpoint.pt"
+    torch.save(
+        {
+            "model_state_dict": {k: v.detach().cpu() for k, v in model.state_dict().items()},
+            "vocab": vocab,
+            "num_filters": args.filters,
+            "kernel_sizes": kernel_sizes,
+            "max_len": args.max_len,
+            "embedding_dim": dim,
+            "glove_pretrained_path": str(glove_txt),
+        },
+        ck_path,
+    )
+    meta_py = Path(__file__).resolve()
+    write_training_txt(
+        run_dir / f"{prefix}.txt",
+        {
+            "timestamp & description": f"prefix={prefix}",
+            "command line": " ".join(sys.argv),
+            "pretrained embeddings": {"path": str(glove_txt), "default_location": str(default_glove_txt(proj))},
+            "training hyperparameters": {
+                "csv": str(args.csv.resolve()),
+                "filters": args.filters,
+                "epochs": args.epochs,
+                "batch": args.batch,
+                "lr": args.lr,
+                "max_len": args.max_len,
+                "kernel_sizes": kernel_sizes,
+                "seed": args.seed,
+                "device_arg": args.device,
+            },
+            "validation and test metrics": metrics,
+            "saved files": {"checkpoint_pt": str(ck_path)},
+        },
+    )
+    copy_script_source(meta_py, run_dir / f"{prefix}.py")
+    print(f"[save] Finetune_Params/{prefix}/ has written {prefix}_checkpoint.pt, {prefix}.txt, and {prefix}.py")
 
 
 if __name__ == "__main__":

@@ -1,11 +1,12 @@
 """
-BERT（报告 2.3.1）
-h = BERT(x)，ˆy = softmax(W h + b)，交叉熵。依赖 transformers。
+BERT (Section 2.3.1 Report)
+h = BERT(x),  ŷ = softmax(W h + b), cross-entropy loss. Requires transformers.
 """
 from __future__ import annotations
 
 import argparse
 import os
+import sys
 import time
 from pathlib import Path
 from typing import List
@@ -25,7 +26,16 @@ from torch.utils.data import DataLoader, Dataset
 try:
     from transformers import AutoModelForSequenceClassification, AutoTokenizer, get_linear_schedule_with_warmup
 except ImportError as e:
-    raise SystemExit("请安装: pip install transformers") from e
+    raise SystemExit("Please install: pip install transformers") from e
+
+from param_storage import (
+    copy_script_source,
+    finetune_base,
+    finetune_prefix,
+    huggingface_pretrained_cache,
+    project_root,
+    write_training_txt,
+)
 
 
 def label_from_url(url: str) -> int:
@@ -43,16 +53,16 @@ def _in_wsl() -> bool:
 
 
 def _print_cuda_install_hints() -> None:
-    print("[hint] WSL2：在 Windows 上安装支持 WSL 的最新 NVIDIA 驱动；在发行版里执行 `nvidia-smi` 应能看到 GPU。")
-    print("[hint] PyTorch 需安装 **CUDA 版** wheel（CPU 版会一直 cuda_available=False）。示例：")
+    print("[hint] WSL2: Install the latest NVIDIA driver for WSL on Windows; running `nvidia-smi` inside your distribution should show the GPU.")
+    print("[hint] PyTorch must be installed **with CUDA support** (CPU version will always result in cuda_available=False). For example:")
     print('       pip3 install torch --index-url https://download.pytorch.org/whl/cu124')
-    print("       （版本号请对照 https://pytorch.org/get-started/locally/ ）")
+    print("       (Check the version number on https://pytorch.org/get-started/locally/ )")
 
 
 def _print_cuda_diagnostics() -> None:
     print(f"[diag] torch={torch.__version__!r}  torch.version.cuda={torch.version.cuda!r}")
     if torch.version.cuda is None:
-        print("[diag] 当前 PyTorch 很可能是 **CPU 构建**，需换用带 CUDA 的安装包。")
+        print("[diag] The current PyTorch is likely a **CPU build**; you should use a CUDA-enabled build.")
     if _in_wsl() and not torch.cuda.is_available():
         _print_cuda_install_hints()
 
@@ -63,7 +73,7 @@ def resolve_torch_device(mode: str) -> torch.device:
         return torch.device("cpu")
     if m == "cuda":
         if not torch.cuda.is_available():
-            print("[error] 请求 --device cuda，但 torch.cuda.is_available() 为 False。")
+            print("[error] Requested --device cuda, but torch.cuda.is_available() is False.")
             _print_cuda_diagnostics()
             raise SystemExit(1)
         return torch.device("cuda")
@@ -72,7 +82,7 @@ def resolve_torch_device(mode: str) -> torch.device:
     if torch.cuda.is_available():
         return torch.device("cuda")
     dev = torch.device("cpu")
-    print("[device] auto → CPU（未检测到可用 CUDA）")
+    print("[device] auto → CPU (CUDA not detected)")
     _print_cuda_diagnostics()
     return dev
 
@@ -112,12 +122,22 @@ def main() -> None:
     ap.add_argument("--max-len", type=int, default=128)
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument(
+        "--project-dir",
+        type=Path,
+        default=None,
+        help="Contains Pretrained_Params/huggingface and Finetune_Params/; defaults to the directory of this script.",
+    )
+    ap.add_argument(
         "--device",
         choices=("auto", "cuda", "cpu"),
         default="auto",
-        help="auto：有 CUDA 则用 GPU；cuda：强制 GPU（不可用则退出）；cpu：强制 CPU",
+        help="auto: Use GPU if CUDA is available; cuda: force GPU (exit if unavailable); cpu: force CPU",
     )
     args = ap.parse_args()
+
+    proj = project_root(args.project_dir, script_dir=Path(__file__).parent)
+    hf_cache = str(huggingface_pretrained_cache(proj))
+    print(f"[paths] project={proj}\n        HuggingFace pretrained cache: {hf_cache}")
 
     torch.manual_seed(args.seed)
 
@@ -136,11 +156,13 @@ def main() -> None:
     print(f"[data] train={len(X_train)} val={len(X_val)} test={len(X_test)}")
 
     t0 = time.perf_counter()
-    tokenizer = AutoTokenizer.from_pretrained(args.model)
+    tokenizer = AutoTokenizer.from_pretrained(args.model, cache_dir=hf_cache)
     print(f"[timing] AutoTokenizer.from_pretrained: {time.perf_counter() - t0:.2f}s")
 
     t0 = time.perf_counter()
-    model = AutoModelForSequenceClassification.from_pretrained(args.model, num_labels=2)
+    model = AutoModelForSequenceClassification.from_pretrained(
+        args.model, num_labels=2, cache_dir=hf_cache
+    )
     print(f"[timing] AutoModelForSequenceClassification.from_pretrained: {time.perf_counter() - t0:.2f}s")
 
     device = resolve_torch_device(args.device)
@@ -148,7 +170,7 @@ def main() -> None:
     if device.type == "cuda":
         print(f"[device] CUDA — {torch.cuda.get_device_name(0)} (device_count={torch.cuda.device_count()})")
     elif args.device == "cpu":
-        print("[device] CPU（--device cpu）")
+        print("[device] CPU (--device cpu)")
 
     pin = device.type == "cuda"
 
@@ -212,9 +234,41 @@ def main() -> None:
         f1 = 2 * tp / (2 * tp + fp + fn + 1e-8)
         return acc, f1
 
+    metrics: dict = {}
     for name, loader in [("val", val_loader), ("test", test_loader)]:
         acc, f1 = evaluate(name, loader)
+        metrics[name] = {"accuracy": acc, "f1_fox": f1}
         print(f"{name}: accuracy={acc:.4f} f1_fox={f1:.4f}")
+
+    prefix = finetune_prefix(Path(__file__).stem)
+    run_dir = finetune_base(proj) / prefix
+    run_dir.mkdir(parents=True, exist_ok=True)
+    hf_out = run_dir / f"{prefix}_finetuned_hf"
+    hf_out.mkdir(parents=True, exist_ok=True)
+    model.save_pretrained(hf_out)
+    tokenizer.save_pretrained(hf_out)
+    meta_py = Path(__file__).resolve()
+    write_training_txt(
+        run_dir / f"{prefix}.txt",
+        {
+            "timestamp_and_note": f"prefix={prefix}",
+            "cmd_args": " ".join(sys.argv),
+            "pretrained_model": {"model_id_or_path": args.model, "hf_cache_dir": hf_cache},
+            "train_hyperparameters": {
+                "csv": str(args.csv.resolve()),
+                "epochs": args.epochs,
+                "batch": args.batch,
+                "lr": args.lr,
+                "max_len": args.max_len,
+                "seed": args.seed,
+                "device_arg": args.device,
+            },
+            "validation_and_test_metrics": metrics,
+            "saved_files": {"finetuned_huggingface_dir": str(hf_out)},
+        },
+    )
+    copy_script_source(meta_py, run_dir / f"{prefix}.py")
+    print(f"[save] Finetune_Params/{prefix}/ written: {prefix}_finetuned_hf, {prefix}.txt, {prefix}.py")
 
 
 if __name__ == "__main__":
