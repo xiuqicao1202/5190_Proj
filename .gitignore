@@ -1,2 +1,4 @@
 Finetune_Params/
 Pretrained_Params/
+*.pt
+*.pth
