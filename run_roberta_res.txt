@@ -1,0 +1,389 @@
+(cis519_proj) cxq@DESKTOP-ON92B52:/mnt/c/Users/Marqu/Downloads/CIS519/5190_Proj$ sh run_classifier.sh all
+=== run_classifier: 1/6 ===
+[paths] project=/mnt/c/Users/Marqu/Downloads/CIS519/5190_Proj
+        HuggingFace pretrained cache: /mnt/c/Users/Marqu/Downloads/CIS519/5190_Proj/Pretrained_Params/huggingface
+[timing] CSV read + stratified split: 0.03s
+[data] train=2663 val=380 test=762
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+[timing] AutoTokenizer.from_pretrained: 1.27s
+Loading weights: 100%|██████████████████████████████████████████████████████████████████████████| 199/199 [00:00<00:00, 1125.52it/s]
+[transformers] BertForSequenceClassification LOAD REPORT from: bert-base-uncased
+Key                                        | Status     | 
+-------------------------------------------+------------+-
+cls.predictions.transform.dense.bias       | UNEXPECTED | 
+cls.predictions.transform.dense.weight     | UNEXPECTED | 
+cls.seq_relationship.bias                  | UNEXPECTED | 
+cls.predictions.bias                       | UNEXPECTED | 
+cls.predictions.transform.LayerNorm.weight | UNEXPECTED | 
+cls.predictions.transform.LayerNorm.bias   | UNEXPECTED | 
+cls.seq_relationship.weight                | UNEXPECTED | 
+classifier.weight                          | MISSING    |
+classifier.bias                            | MISSING    |
+
+Notes:
+- UNEXPECTED:   can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+- MISSING:      those params were newly initialized because missing from the checkpoint. Consider training on your downstream task. 
+[timing] AutoModelForSequenceClassification.from_pretrained: 1.16s
+[device] CUDA — NVIDIA GeForce RTX 4060 Laptop GPU (device_count=1)
+train epoch 1/3: 100%|████████████████████████████████████████████████████████████| 167/167 [00:33<00:00,  4.96batch/s, loss=0.3022]
+[timing] train epoch 1/3: 30.83s
+train epoch 2/3: 100%|████████████████████████████████████████████████████████████| 167/167 [00:33<00:00,  4.94batch/s, loss=0.3187]
+[timing] train epoch 2/3: 31.03s
+train epoch 3/3: 100%|████████████████████████████████████████████████████████████| 167/167 [00:34<00:00,  4.78batch/s, loss=0.0921]
+[timing] train epoch 3/3: 32.10s
+[timing] all training epochs: 93.97s
+eval val: 100%|██████████████████████████████████████████████████████████████████████████████████| 24/24 [00:01<00:00, 17.91batch/s]
+[timing] evaluate val: 1.34s
+val: accuracy=0.8237 f1_fox=0.8164
+eval test: 100%|█████████████████████████████████████████████████████████████████████████████████| 48/48 [00:02<00:00, 17.06batch/s]
+[timing] evaluate test: 2.81s
+test: accuracy=0.8084 f1_fox=0.8027
+Writing model shards: 100%|███████████████████████████████████████████████████████████████████████████| 1/1 [00:06<00:00,  6.40s/it]
+[save] Finetune_Params/20260506164056_classifier_bert/ written: 20260506164056_classifier_bert_finetuned_hf, 20260506164056_classifier_bert.txt, 20260506164056_classifier_bert.py
+=== run_classifier: 2/6 ===
+[paths] project=/mnt/c/Users/Marqu/Downloads/CIS519/5190_Proj
+        GloVe -> /mnt/c/Users/Marqu/Downloads/CIS519/5190_Proj/Pretrained_Params/glove/glove.6B.100d.txt
+[device] CUDA — NVIDIA GeForce RTX 4060 Laptop GPU (device_count=1)
+[timing] CSV read + stratified split: 0.02s
+[data] train=2663 val=380 test=762
+[timing] train epoch 1/15: 0.62s
+[timing] train epoch 2/15: 0.12s
+[timing] train epoch 3/15: 0.11s
+[timing] train epoch 4/15: 0.11s
+[timing] train epoch 5/15: 0.11s
+[timing] train epoch 6/15: 0.11s
+[timing] train epoch 7/15: 0.13s
+[timing] train epoch 8/15: 0.11s
+[timing] train epoch 9/15: 0.11s
+[timing] train epoch 10/15: 0.11s
+[timing] train epoch 11/15: 0.12s
+[timing] train epoch 12/15: 0.11s
+[timing] train epoch 13/15: 0.11s
+[timing] train epoch 14/15: 0.10s
+[timing] train epoch 15/15: 0.11s
+[timing] all training epochs: 2.19s
+[timing] evaluate val: 0.02s
+val: accuracy=0.7842 f1_fox=0.7831
+[timing] evaluate test: 0.02s
+test: accuracy=0.7717 f1_fox=0.7775
+[save] Finetune_Params/20260506164141_classifier_glove_cnn/ has written 20260506164141_classifier_glove_cnn_checkpoint.pt, 20260506164141_classifier_glove_cnn.txt, and 20260506164141_classifier_glove_cnn.py
+=== run_classifier: 3/6 ===
+[paths] project=/mnt/c/Users/Marqu/Downloads/CIS519/5190_Proj
+        Pretrained_Params GloVe -> /mnt/c/Users/Marqu/Downloads/CIS519/5190_Proj/Pretrained_Params/glove/glove.6B.100d.txt
+[device] CUDA — NVIDIA GeForce RTX 4060 Laptop GPU (device_count=1)
+[timing] CSV read + stratified split: 0.03s
+[data] train=2663 val=380 test=762
+[timing] train epoch 1/15: 0.37s
+[timing] train epoch 2/15: 0.09s
+[timing] train epoch 3/15: 0.08s
+[timing] train epoch 4/15: 0.08s
+[timing] train epoch 5/15: 0.08s
+[timing] train epoch 6/15: 0.08s
+[timing] train epoch 7/15: 0.08s
+[timing] train epoch 8/15: 0.10s
+[timing] train epoch 9/15: 0.14s
+[timing] train epoch 10/15: 0.18s
+[timing] train epoch 11/15: 0.16s
+[timing] train epoch 12/15: 0.17s
+[timing] train epoch 13/15: 0.10s
+[timing] train epoch 14/15: 0.07s
+[timing] train epoch 15/15: 0.07s
+[timing] all training epochs: 1.85s
+[timing] evaluate val: 0.01s
+val: accuracy=0.7974 f1_fox=0.7968
+[timing] evaluate test: 0.01s
+test: accuracy=0.7598 f1_fox=0.7620
+[save] Finetune_Params/20260506164213_classifier_glove_mlp/ written 20260506164213_classifier_glove_mlp_checkpoint.pt, 20260506164213_classifier_glove_mlp.txt, and 20260506164213_classifier_glove_mlp.py
+=== run_classifier: 4/6 ===
+[paths] project=/mnt/c/Users/Marqu/Downloads/CIS519/5190_Proj
+        HuggingFace pretrained cache: /mnt/c/Users/Marqu/Downloads/CIS519/5190_Proj/Pretrained_Params/huggingface
+[timing] CSV read + stratified split: 0.04s
+[data] train=2663 val=380 test=762
+[timing] AutoTokenizer.from_pretrained: 0.98s
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights: 100%|██████████████████████████████████████████████████████████████████████████| 199/199 [00:00<00:00, 1335.29it/s]
+[transformers] BertForSequenceClassification LOAD REPORT from: bert-base-uncased
+Key                                        | Status     |
+-------------------------------------------+------------+-
+cls.seq_relationship.bias                  | UNEXPECTED |
+cls.predictions.transform.LayerNorm.weight | UNEXPECTED |
+cls.predictions.transform.dense.weight     | UNEXPECTED |
+cls.predictions.transform.LayerNorm.bias   | UNEXPECTED |
+cls.predictions.transform.dense.bias       | UNEXPECTED |
+cls.predictions.bias                       | UNEXPECTED |
+cls.seq_relationship.weight                | UNEXPECTED |
+classifier.weight                          | MISSING    |
+classifier.bias                            | MISSING    |
+
+Notes:
+- UNEXPECTED:   can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+- MISSING:      those params were newly initialized because missing from the checkpoint. Consider training on your downstream task. 
+[timing] AutoModelForSequenceClassification.from_pretrained: 0.74s
+[device] CUDA — NVIDIA GeForce RTX 4060 Laptop GPU (device_count=1)
+train epoch 1/3: 100%|████████████████████████████████████████████████████████████| 167/167 [00:34<00:00,  4.84batch/s, loss=0.3022]
+[timing] train epoch 1/3: 31.66s
+train epoch 2/3: 100%|████████████████████████████████████████████████████████████| 167/167 [00:35<00:00,  4.76batch/s, loss=0.3187]
+[timing] train epoch 2/3: 32.26s
+train epoch 3/3: 100%|████████████████████████████████████████████████████████████| 167/167 [00:35<00:00,  4.67batch/s, loss=0.0921]
+[timing] train epoch 3/3: 32.99s
+[timing] all training epochs: 96.90s
+eval val: 100%|██████████████████████████████████████████████████████████████████████████████████| 24/24 [00:01<00:00, 17.93batch/s]
+[timing] evaluate val: 1.34s
+val: accuracy=0.8237 f1_fox=0.8164
+eval test: 100%|█████████████████████████████████████████████████████████████████████████████████| 48/48 [00:02<00:00, 18.13batch/s]
+[timing] evaluate test: 2.65s
+test: accuracy=0.8084 f1_fox=0.8027
+Writing model shards: 100%|███████████████████████████████████████████████████████████████████████████| 1/1 [00:03<00:00,  3.32s/it]
+[save] Finetune_Params/20260506164411_classifier_roberta/ written: 20260506164411_classifier_roberta_finetuned_hf, 20260506164411_classifier_roberta.txt, 20260506164411_classifier_roberta.py
+Writing model shards: 100%|███████████████████████████████████████████████████████████████████████████| 1/1 [00:03<00:00,  3.32s/it]
+[save] Finetune_Params/20260506164411_classifier_roberta/ written: 20260506164411_classifier_roberta_finetuned_hf, 20260506164411_classifier_roberta.txt, 20260506164411_classifier_roberta.py
+=== run_classifier: 5/6 ===
+[paths] project=/mnt/c/Users/Marqu/Downloads/CIS519/5190_Proj (TF-IDF does not[save] Finetune_Params/20260506164411_classifier_roberta/ written: 20260506164411_classifier_roberta_finetuned_hf, 20260506164411_classifier_roberta.txt, 20260506164411_classifier_roberta.py
+=== run_classifier: 5/6 ===
+[paths] project=/mnt/c/Users/Marqu/Downloads/CIS519/5190_Proj (TF-IDF does nota.py
+=== run_classifier: 5/6 ===
+[paths] project=/mnt/c/Users/Marqu/Downloads/CIS519/5190_Proj (TF-IDF does nota.py
+=== run_classifier: 5/6 ===
+[paths] project=/mnt/c/Users/Marqu/Downloads/CIS519/5190_Proj (TF-IDF does not[paths] project=/mnt/c/Users/Marqu/Downloads/CIS519/5190_Proj (TF-IDF does not use any external pretrained weights, only saved to Finetune_Params/)
+se any external pretrained weights, only saved to Finetune_Params/)
+val: accuracy=0.6711 f1_fox=0.7216
+val: accuracy=0.6711 f1_fox=0.7216
+test: accuracy=0.6811 f1_fox=0.7315
+[save] LR_submit/: /mnt/c/Users/Marqu/Downloads/CIS519/5190_Proj/LR_submit/tfidf_lr_pipeline.joblib
+[save] params_submit/ (mirror): /mnt/c/Users/Marqu/Downloads/CIS519/5190_Proj/params_submit/tfidf_lr_pipeline.joblib
+[save] Finetune_Params/20260506164417_classifier_tfidf_logistic_regression/ model weights, 20260506164417_classifier_tfidf_logistic_regression.txt, and 20260506164417_classifier_tfidf_logistic_regression.py have been saved.
+=== run_classifier: 6/6 ===
+[paths] project=/mnt/c/Users/Marqu/Downloads/CIS519/5190_Proj
+val: accuracy=0.7947 f1_fox=0.8152
+test: accuracy=0.8123 f1_fox=0.8258
+[save] Finetune_Params/20260506164418_classifier_tfidf_svm/ Weights, 20260506164418_classifier_tfidf_svm.txt, and 20260506164418_classifier_tfidf_svm.py have been saved.
+(cis519_proj) cxq@DESKTOP-ON92B52:/mnt/c/Users/Marqu/Downloads/CIS519/5190_Proj$ (cis519_proj) cxq@DESKTOP-ON92B52:/mnt/c/Users/Marqu/Downloads/CIS519/5190_(cis519_proj) cxq@DESKTOP-ON92B52:/mnt/c/Users/Marqu/Downloads/CIS519/5190_Proj$
+(cis519_proj) cxq@DESKTOP-ON92B52:/mnt/c/Users/Marqu/Downloads/CIS519/5190_Proj$
+(cis519_proj) cxq@DESKTOP-ON92B52:/mnt/c/Users/Marqu/Downloads/CIS519/5190_Proj$ sh run_classifier.sh 4
+[paths] project=/mnt/c/Users/Marqu/Downloads/CIS519/5190_Proj
+        HuggingFace pretrained cache: /mnt/c/Users/Marqu/Downloads/CIS519/5190_Proj/Pretrained_Params/huggingface
+[timing] CSV read + stratified split: 0.03s
+[data] train=2663 val=380 test=762
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+[timing] AutoTokenizer.from_pretrained: 1.43s
+Loading weights: 100%|████████████████████| 197/197 [00:00<00:00, 1299.90it/s]
+[transformers] RobertaForSequenceClassification LOAD REPORT from: roberta-base
+Key                        | Status     |
+---------------------------+------------+-
+lm_head.dense.bias         | UNEXPECTED |
+lm_head.dense.weight       | UNEXPECTED |
+lm_head.layer_norm.bias    | UNEXPECTED |
+lm_head.layer_norm.weight  | UNEXPECTED |
+lm_head.bias               | UNEXPECTED |
+classifier.out_proj.weight | MISSING    |
+classifier.dense.bias      | MISSING    |
+classifier.out_proj.bias   | MISSING    |
+classifier.dense.weight    | MISSING    |
+
+Notes:
+- UNEXPECTED:   can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+- MISSING:      those params were newly initialized because missing from the checkpoint. Consider training on your downstream task.
+[device] CUDA — NVIDIA GeForce RTX 4060 Laptop GPU (device_count=1)
+train epoch 1/3: 100%|██████| 167/167 [00:34<00:00,  4.84batch/s, loss=0.6100]
+[timing] train epoch 1/3: 31.66s
+train epoch 2/3: 100%|██████| 167/167 [00:33<00:00,  4.95batch/s, loss=0.3867]
+[timing] train epoch 2/3: 31.75s
+train epoch 3/3: 100%|██████| 167/167 [00:34<00:00,  4.87batch/s, loss=0.1223]
+[timing] train epoch 3/3: 31.09s
+[timing] all training epochs: 94.50s
+eval val: 100%|████████████████████████████| 24/24 [00:01<00:00, 18.57batch/s]
+[timing] evaluate val: 1.29s
+val: accuracy=0.8737 f1_fox=0.8743
+eval test: 100%|███████████████████████████| 48/48 [00:02<00:00, 18.66batch/s]
+[timing] evaluate test: 2.57s
+test: accuracy=0.8241 f1_fox=0.8199
+Writing model shards: 100%|█████████████████████| 1/1 [00:03<00:00,  3.86s/it]
+[save] Finetune_Params/20260506165545_classifier_roberta/ written: 20260506165545_classifier_roberta_finetuned_hf, 2(cis519_proj) cxq@DESKTOP-ON92B52:/mnt/c/Users/Marqu/Downloads/CIS519/5190_Proj$ sh run_roberta.sh 
+: not found.sh: 5: 
+run_roberta.sh: 6: set: Illegal option -o pipefail
+(cis519_proj) cxq@DESKTOP-ON92B52:/mnt/c/Users/Marqu/Downloads/CIS519/5190_Proj$ sh run_roberta.sh 
+: not found.sh: 5: 
+run_roberta.sh: 67: Syntax error: end of file unexpected (expecting "fi")
+(cis519_proj) cxq@DESKTOP-ON92B52:/mnt/c/Users/Marqu/Downloads/CIS519/5190_Proj$ dos2unix run_roberta.sh
+-bash: dos2unix: command not found
+(cis519_proj) cxq@DESKTOP-ON92B52:/mnt/c/Users/Marqu/Downloads/CIS519/5190_Proj$ sh run_roberta.sh 
+: not found.sh: 5: 
+run_roberta.sh: 67: Syntax error: end of file unexpected (expecting "fi")
+(cis519_proj) cxq@DESKTOP-ON92B52:/mnt/c/Users/Marqu/Downloads/CIS519/5190_Proj$ sed -i 's/\r//' run_roberta.sh
+(cis519_proj) cxq@DESKTOP-ON92B52:/mnt/c/Users/Marqu/Downloads/CIS519/5190_Proj$  sh run_roberta.sh 
+===== [1/5] 更多epochs: roberta-base, lr=2e-5, batch=16, epochs=5, max-len=128 =====
+[paths] project=/mnt/c/Users/Marqu/Downloads/CIS519/5190_Proj
+        HuggingFace pretrained cache: /mnt/c/Users/Marqu/Downloads/CIS519/5190_Proj/Pretrained_Params/huggingface   
+[timing] CSV read + stratified split: 0.04s
+[data] train=2663 val=380 test=762
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+[timing] AutoTokenizer.from_pretrained: 1.43s
+Loading weights: 100%|██████████████████████████████████████████████████████████| 197/197 [00:00<00:00, 1425.40it/s]
+[transformers] RobertaForSequenceClassification LOAD REPORT from: roberta-base
+Key                        | Status     |
+---------------------------+------------+-
+lm_head.bias               | UNEXPECTED |
+lm_head.layer_norm.weight  | UNEXPECTED |
+lm_head.layer_norm.bias    | UNEXPECTED |
+lm_head.dense.bias         | UNEXPECTED |
+lm_head.dense.weight       | UNEXPECTED |
+classifier.out_proj.bias   | MISSING    |
+classifier.dense.weight    | MISSING    |
+classifier.out_proj.weight | MISSING    |
+classifier.dense.bias      | MISSING    |
+
+Notes:
+- UNEXPECTED:   can be ignored when loading from different task/architecture; not ok if you expect identical arch.  
+- MISSING:      those params were newly initialized because missing from the checkpoint. Consider training on your downstream task.
+[timing] AutoModelForSequenceClassification.from_pretrained: 0.94s
+[device] CUDA — NVIDIA GeForce RTX 4060 Laptop GPU (device_count=1)
+train epoch 1/5: 100%|████████████████████████████████████████████| 167/167 [00:34<00:00,  4.90batch/s, loss=0.4561]
+[timing] train epoch 1/5: 31.29s
+train epoch 2/5: 100%|████████████████████████████████████████████| 167/167 [00:34<00:00,  4.91batch/s, loss=0.2828]
+[timing] train epoch 2/5: 31.38s
+train epoch 3/5: 100%|████████████████████████████████████████████| 167/167 [00:34<00:00,  4.86batch/s, loss=0.1416]
+[timing] train epoch 3/5: 31.55s
+train epoch 4/5: 100%|████████████████████████████████████████████| 167/167 [00:34<00:00,  4.90batch/s, loss=0.0072]
+[timing] train epoch 4/5: 31.36s
+train epoch 5/5: 100%|████████████████████████████████████████████| 167/167 [00:34<00:00,  4.88batch/s, loss=0.0404]
+[timing] train epoch 5/5: 31.45s
+[timing] all training epochs: 157.04s
+eval val: 100%|██████████████████████████████████████████████████████████████████| 24/24 [00:01<00:00, 19.34batch/s]
+[timing] evaluate val: 1.24s
+val: accuracy=0.8789 f1_fox=0.8796
+eval test: 100%|█████████████████████████████████████████████████████████████████| 48/48 [00:02<00:00, 19.34batch/s]
+[timing] evaluate test: 2.48s
+test: accuracy=0.8412 f1_fox=0.8393
+Writing model shards: 100%|███████████████████████████████████████████████████████████| 1/1 [00:03<00:00,  3.86s/it]
+[save] Finetune_Params/20260506171101_classifier_roberta/ written: 20260506171101_classifier_roberta_finetuned_hf, 20260506171101_classifier_roberta.txt, 20260506171101_classifier_roberta.py
+===== [2/5] 更高学习率: lr=3e-5, epochs=3 =====
+[paths] project=/mnt/c/Users/Marqu/Downloads/CIS519/5190_Proj
+        HuggingFace pretrained cache: /mnt/c/Users/Marqu/Downloads/CIS519/5190_Proj/Pretrained_Params/huggingface   
+[timing] CSV read + stratified split: 0.03s
+[data] train=2663 val=380 test=762
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+[timing] AutoTokenizer.from_pretrained: 1.52s
+Loading weights: 100%|██████████████████████████████████████████████████████████| 197/197 [00:00<00:00, 1548.13it/s]
+[transformers] RobertaForSequenceClassification LOAD REPORT from: roberta-base
+Key                        | Status     |
+---------------------------+------------+-
+lm_head.dense.weight       | UNEXPECTED |
+lm_head.layer_norm.bias    | UNEXPECTED |
+lm_head.bias               | UNEXPECTED |
+lm_head.dense.bias         | UNEXPECTED |
+lm_head.layer_norm.weight  | UNEXPECTED |
+classifier.dense.bias      | MISSING    |
+classifier.dense.weight    | MISSING    |
+classifier.out_proj.bias   | MISSING    |
+classifier.out_proj.weight | MISSING    |
+
+Notes:
+- UNEXPECTED:   can be ignored when loading from different task/architecture; not ok if you expect identical arch.  
+- MISSING:      those params were newly initialized because missing from the checkpoint. Consider training on your downstream task.
+[timing] AutoModelForSequenceClassification.from_pretrained: 0.74s
+[device] CUDA — NVIDIA GeForce RTX 4060 Laptop GPU (device_count=1)
+train epoch 1/3: 100%|████████████████████████████████████████████| 167/167 [00:34<00:00,  4.88batch/s, loss=0.3632]
+[timing] train epoch 1/3: 31.38s
+train epoch 2/3: 100%|████████████████████████████████████████████| 167/167 [00:34<00:00,  4.89batch/s, loss=0.4545]
+[timing] train epoch 2/3: 31.25s
+train epoch 3/3: 100%|████████████████████████████████████████████| 167/167 [00:34<00:00,  4.88batch/s, loss=0.1660]
+[timing] train epoch 3/3: 31.36s
+[timing] all training epochs: 93.99s
+eval val: 100%|██████████████████████████████████████████████████████████████████| 24/24 [00:01<00:00, 18.88batch/s]
+[timing] evaluate val: 1.27s
+val: accuracy=0.8711 f1_fox=0.8672
+eval test: 100%|█████████████████████████████████████████████████████████████████| 48/48 [00:02<00:00, 18.95batch/s]
+[timing] evaluate test: 2.53s
+test: accuracy=0.8373 f1_fox=0.8333
+Writing model shards: 100%|███████████████████████████████████████████████████████████| 1/1 [00:07<00:00,  7.19s/it]
+[save] Finetune_Params/20260506171302_classifier_roberta/ written: 20260506171302_classifier_roberta_finetuned_hf, 20260506171302_classifier_roberta.txt, 20260506171302_classifier_roberta.py
+===== [3/5] 短文本优化: max-len=64, batch=32, lr=2e-5 =====
+[paths] project=/mnt/c/Users/Marqu/Downloads/CIS519/5190_Proj
+        HuggingFace pretrained cache: /mnt/c/Users/Marqu/Downloads/CIS519/5190_Proj/Pretrained_Params/huggingface   
+[timing] CSV read + stratified split: 0.02s
+[data] train=2663 val=380 test=762
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+[timing] AutoTokenizer.from_pretrained: 1.23s
+Loading weights: 100%|██████████████████████████████████████████████████████████| 197/197 [00:00<00:00, 1510.67it/s]
+[transformers] RobertaForSequenceClassification LOAD REPORT from: roberta-base
+Key                        | Status     |
+---------------------------+------------+-
+lm_head.layer_norm.bias    | UNEXPECTED |
+lm_head.dense.bias         | UNEXPECTED |
+lm_head.layer_norm.weight  | UNEXPECTED |
+lm_head.dense.weight       | UNEXPECTED |
+lm_head.bias               | UNEXPECTED |
+classifier.out_proj.bias   | MISSING    |
+classifier.dense.bias      | MISSING    |
+classifier.out_proj.weight | MISSING    |
+classifier.dense.weight    | MISSING    |
+
+Notes:
+- UNEXPECTED:   can be ignored when loading from different task/architecture; not ok if you expect identical arch.  
+- MISSING:      those params were newly initialized because missing from the checkpoint. Consider training on your downstream task.
+[timing] AutoModelForSequenceClassification.from_pretrained: 0.73s
+[device] CUDA — NVIDIA GeForce RTX 4060 Laptop GPU (device_count=1)
+train epoch 1/3: 100%|██████████████████████████████████████████████| 84/84 [00:15<00:00,  5.44batch/s, loss=0.3863]
+[timing] train epoch 1/3: 15.44s
+train epoch 2/3: 100%|██████████████████████████████████████████████| 84/84 [00:18<00:00,  4.55batch/s, loss=0.4570]
+[timing] train epoch 2/3: 15.60s
+train epoch 3/3: 100%|██████████████████████████████████████████████| 84/84 [00:15<00:00,  5.52batch/s, loss=0.1576]
+[timing] train epoch 3/3: 15.23s
+[timing] all training epochs: 46.27s
+eval val: 100%|██████████████████████████████████████████████████████████████████| 12/12 [00:00<00:00, 18.79batch/s]
+[timing] evaluate val: 0.64s
+val: accuracy=0.8553 f1_fox=0.8525
+eval test: 100%|█████████████████████████████████████████████████████████████████| 24/24 [00:01<00:00, 18.85batch/s]
+[timing] evaluate test: 1.27s
+test: accuracy=0.8320 f1_fox=0.8266
+Writing model shards: 100%|███████████████████████████████████████████████████████████| 1/1 [00:07<00:00,  7.65s/it]
+[save] Finetune_Params/20260506171412_classifier_roberta/ written: 20260506171412_classifier_roberta_finetuned_hf, 20260506171412_classifier_roberta.txt, 20260506171412_classifier_roberta.py
+===== [4/5] 更复杂模型: roberta-large, batch=8, lr=1e-5, epochs=3 =====
+[paths] project=/mnt/c/Users/Marqu/Downloads/CIS519/5190_Proj
+        HuggingFace pretrained cache: /mnt/c/Users/Marqu/Downloads/CIS519/5190_Proj/Pretrained_Params/huggingface   
+[timing] CSV read + stratified split: 0.03s
+[data] train=2663 val=380 test=762
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+config.json: 100%|█████████████████████████████████████████████████████████████████| 482/482 [00:00<00:00, 3.23MB/s]
+tokenizer_config.json: 100%|█████████████████████████████████████████████████████| 25.0/25.0 [00:00<00:00, 17.8kB/s]
+vocab.json: 899kB [00:00, 8.10MB/s]
+merges.txt: 456kB [00:00, 22.5MB/s]
+tokenizer.json: 1.36MB [00:00, 22.3MB/s]
+[timing] AutoTokenizer.from_pretrained: 3.15s
+model.safetensors: 100%|███████████████████████████████████████████████████████| 1.42G/1.42G [00:32<00:00, 43.4MB/s]
+Loading weights: 100%|██████████████████████████████████████████████████████████| 389/389 [00:00<00:00, 1332.70it/s]
+[transformers] RobertaForSequenceClassification LOAD REPORT from: roberta-large
+Key                        | Status     |
+---------------------------+------------+-
+lm_head.dense.weight       | UNEXPECTED |
+lm_head.layer_norm.weight  | UNEXPECTED |
+lm_head.bias               | UNEXPECTED |
+lm_head.layer_norm.bias    | UNEXPECTED |
+lm_head.dense.bias         | UNEXPECTED |
+classifier.dense.bias      | MISSING    |
+classifier.out_proj.weight | MISSING    |
+classifier.out_proj.bias   | MISSING    |
+classifier.dense.weight    | MISSING    |
+
+Notes:
+- UNEXPECTED:   can be ignored when loading from different task/architecture; not ok if you expect identical arch.  
+- MISSING:      those params were newly initialized because missing from the checkpoint. Consider training on your downstream task.
+[timing] AutoModelForSequenceClassification.from_pretrained: 31.23s
+[device] CUDA — NVIDIA GeForce RTX 4060 Laptop GPU (device_count=1)
+train epoch 1/3: 100%|████████████████████████████████████████████| 333/333 [02:13<00:00,  2.50batch/s, loss=0.6482]
+[timing] train epoch 1/3: 122.46s
+train epoch 2/3: 100%|████████████████████████████████████████████| 333/333 [02:13<00:00,  2.50batch/s, loss=0.6806]
+[timing] train epoch 2/3: 119.82s
+train epoch 3/3: 100%|████████████████████████████████████████████| 333/333 [02:09<00:00,  2.56batch/s, loss=0.6835]
+[timing] train epoch 3/3: 120.22s
+[timing] all training epochs: 362.50s
+eval val: 100%|██████████████████████████████████████████████████████████████████| 48/48 [00:07<00:00,  6.68batch/s]
+[timing] evaluate val: 3.98s
+val: accuracy=0.6289 f1_fox=0.7345
+eval test: 100%|█████████████████████████████████████████████████████████████████| 96/96 [00:08<00:00, 11.94batch/s]
+[timing] evaluate test: 8.04s
+test: accuracy=0.5919 f1_fox=0.7144
+Writing model shards: 100%|███████████████████████████████████████████████████████████| 1/1 [00:15<00:00, 15.08s/it]
+[save] Finetune_Params/20260506172205_classifier_roberta/ written: 20260506172205_classifier_roberta_finetuned_hf, 20260506172205_classifier_roberta.txt, 20260506172205_classifier_roberta.py
+===== 所有实验完成 =====
+(cis519_proj) cxq@DESKTOP-ON92B52:/mnt/c/Users/Marqu/Downloads/CIS519/5190_Proj$ 

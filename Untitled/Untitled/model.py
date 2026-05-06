@@ -9,7 +9,7 @@ import torch.nn as nn
 
 
 class NewsClassifier(nn.Module):
-    def __init__(self, load_weights: bool = True) -> None:
+    def __init__(self) -> None:
         super().__init__()
 
         self.num_features = 8192
@@ -17,11 +17,13 @@ class NewsClassifier(nn.Module):
         self.idf = torch.ones(self.num_features)
         self.classifier = nn.Linear(self.num_features, len(self.classes))
 
-        if load_weights:
-            model_path = Path(__file__).resolve().parent / "model.pt"
-            if model_path.exists():
-                state = torch.load(model_path, map_location="cpu")
-                self.load_state_dict(state)
+        
+        model_path = Path(__file__).resolve().parent / "model.pt"
+        if model_path.exists():
+            state = torch.load(model_path, map_location="cpu")
+            self.load_state_dict(state)
+        if not model_path.exists():
+            raise FileNotFoundError(f"未找到 model.pt，请将训练生成的文件放在: {model_path}")
 
         self.eval()
 

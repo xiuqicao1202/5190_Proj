@@ -1,13 +1,12 @@
 """
-RoBERTa (Report 2.3.1)
-h = RoBERTa(x), ŷ = softmax(W h + b). Depends on transformers.
+RoBERTa (Section 2.3.2 Report)
+h = RoBERTa(x),  ŷ = softmax(W h + b), cross-entropy loss. Requires transformers.
 """
 from __future__ import annotations
 
 import argparse
 import os
-import re
-import shutil
+import random
 import sys
 import time
 from pathlib import Path
@@ -44,24 +43,6 @@ def label_from_url(url: str) -> int:
     return 1 if "foxnews.com" in url.lower() else 0
 
 
-def pseudo_title_from_url(raw_url: str) -> str:
-    """
-    Same rules as RoBERTa_submit/preprocess.py: model inputs must match leaderboard X.
-    """
-    clean_url = raw_url.split("?")[0].split("#")[0]
-    segments = clean_url.split("/")
-    last_segment = segments[-1]
-    if "rcrd" in last_segment and len(segments) >= 2:
-        last_segment = segments[-2]
-    last_segment = last_segment.replace(".print", "")
-    last_segment = re.sub(r"-(n|rcna|ncna)\d+(-update)?$", "", last_segment)
-    last_segment = re.sub(r"rcrd\d+$", "", last_segment)
-    pseudo_title = last_segment.replace("-", " ")
-    pseudo_title = re.sub(r"[^a-zA-Z0-9\s]", "", pseudo_title)
-    pseudo_title = pseudo_title.lower()
-    return " ".join(pseudo_title.split())
-
-
 def _in_wsl() -> bool:
     if os.environ.get("WSL_DISTRO_NAME") or os.environ.get("WSL_INTEROP"):
         return True
@@ -73,16 +54,16 @@ def _in_wsl() -> bool:
 
 
 def _print_cuda_install_hints() -> None:
-    print("[hint] WSL2: Install the latest NVIDIA driver for WSL support on Windows; running `nvidia-smi` in your distro should see the GPU.")
-    print("[hint] PyTorch must use the **CUDA version** wheel (CPU-only wheels will always have cuda_available=False). Example:")
+    print("[hint] WSL2: Install the latest NVIDIA driver for WSL on Windows; running `nvidia-smi` inside your distribution should show the GPU.")
+    print("[hint] PyTorch must be installed **with CUDA support** (CPU version will always result in cuda_available=False). For example:")
     print('       pip3 install torch --index-url https://download.pytorch.org/whl/cu124')
-    print("       (Please check the version at https://pytorch.org/get-started/locally/ )")
+    print("       (Check the version number on https://pytorch.org/get-started/locally/ )")
 
 
 def _print_cuda_diagnostics() -> None:
     print(f"[diag] torch={torch.__version__!r}  torch.version.cuda={torch.version.cuda!r}")
     if torch.version.cuda is None:
-        print("[diag] Current PyTorch is probably a **CPU build**, you need to use the CUDA version install package.")
+        print("[diag] The current PyTorch is likely a **CPU build**; you should use a CUDA-enabled build.")
     if _in_wsl() and not torch.cuda.is_available():
         _print_cuda_install_hints()
 
@@ -102,7 +83,7 @@ def resolve_torch_device(mode: str) -> torch.device:
     if torch.cuda.is_available():
         return torch.device("cuda")
     dev = torch.device("cpu")
-    print("[device] auto → CPU (No available CUDA detected)")
+    print("[device] auto → CPU (CUDA not detected)")
     _print_cuda_diagnostics()
     return dev
 
@@ -145,63 +126,43 @@ def main() -> None:
         "--project-dir",
         type=Path,
         default=None,
-        help="Contains Pretrained_Params/huggingface and Finetune_Params/; defaults to this script's directory",
+        help="Contains Pretrained_Params/huggingface and Finetune_Params/; defaults to the directory of this script.",
     )
     ap.add_argument(
         "--device",
         choices=("auto", "cuda", "cpu"),
         default="auto",
-        help="auto: use GPU if CUDA is available; cuda: force GPU (exit if unavailable); cpu: force CPU",
-    )
-    ap.add_argument(
-        "--text-from",
-        choices=("pseudo_title", "headline"),
-        default="pseudo_title",
-        help="pseudo_title: URL slug like preprocess.py (default, matches leaderboard). headline: CSV headline column.",
+        help="auto: Use GPU if CUDA is available; cuda: force GPU (exit if unavailable); cpu: force CPU",
     )
     args = ap.parse_args()
 
     proj = project_root(args.project_dir, script_dir=Path(__file__).parent)
     hf_cache = str(huggingface_pretrained_cache(proj))
     print(f"[paths] project={proj}\n        HuggingFace pretrained cache: {hf_cache}")
-    print(f"[data] text_from={args.text_from!r}")
 
+    random.seed(args.seed)
+    np.random.seed(args.seed)
     torch.manual_seed(args.seed)
+    torch.cuda.manual_seed_all(args.seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
     t0 = time.perf_counter()
     df = pd.read_csv(args.csv)
-    if args.text_from == "headline":
-        texts = df["headline"].fillna("").astype(str).tolist()
-    else:
-        texts = [pseudo_title_from_url(str(u)) for u in df["url"].tolist()]
+    texts = df["headline"].fillna("").astype(str).tolist()
     labels = [label_from_url(str(u)) for u in df["url"].tolist()]
 
-    # print("texts ", texts)
-    # print("labels ", labels)
-
-    # Split the data
     X_train, X_temp, y_train, y_temp = train_test_split(
         texts, labels, test_size=0.3, random_state=args.seed, stratify=np.array(labels)
     )
     X_val, X_test, y_val, y_test = train_test_split(
         X_temp, y_temp, test_size=2 / 3, random_state=args.seed, stratify=np.array(y_temp)
     )
-
-    # Save to CSV files (column name 'headline' holds training text: pseudo_title or real headline)
-    label_map = {1: "FoxNews", 0: "NBC"}
-    y_train_str = [label_map[l] for l in y_train]
-    y_val_str = [label_map[l] for l in y_val]
-    y_test_str = [label_map[l] for l in y_test]
-    pd.DataFrame({'headline': X_train, 'label': y_train_str}).to_csv('train.csv', index=False)
-    pd.DataFrame({'headline': X_val, 'label': y_val_str}).to_csv('val.csv', index=False)
-    pd.DataFrame({'headline': X_test, 'label': y_test_str}).to_csv('test.csv', index=False)
     print(f"[timing] CSV read + stratified split: {time.perf_counter() - t0:.2f}s")
     print(f"[data] train={len(X_train)} val={len(X_val)} test={len(X_test)}")
 
     t0 = time.perf_counter()
     tokenizer = AutoTokenizer.from_pretrained(args.model, cache_dir=hf_cache)
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
     print(f"[timing] AutoTokenizer.from_pretrained: {time.perf_counter() - t0:.2f}s")
 
     t0 = time.perf_counter()
@@ -221,13 +182,7 @@ def main() -> None:
 
     def make_loader(X: List[str], y: List[int], shuffle: bool) -> DataLoader:
         ds = HeadlineDataset(X, y, tokenizer, args.max_len)
-        return DataLoader(
-            ds,
-            batch_size=args.batch,
-            shuffle=shuffle,
-            pin_memory=pin,
-            num_workers=0,
-        )
+        return DataLoader(ds, batch_size=args.batch, shuffle=shuffle, pin_memory=pin)
 
     train_loader = make_loader(X_train, y_train, True)
     val_loader = make_loader(X_val, y_val, False)
@@ -298,24 +253,14 @@ def main() -> None:
     hf_out.mkdir(parents=True, exist_ok=True)
     model.save_pretrained(hf_out)
     tokenizer.save_pretrained(hf_out)
-
-    weights_name = f"{prefix}_weights.pth"
-    weights_path = run_dir / weights_name
-    torch.save(model.state_dict(), weights_path)
-
-    submit_dir = proj / "params_submit"
-    submit_dir.mkdir(parents=True, exist_ok=True)
-    submit_weights = submit_dir / "roberta.pth"
-    shutil.copy2(weights_path, submit_weights)
-
     meta_py = Path(__file__).resolve()
     write_training_txt(
         run_dir / f"{prefix}.txt",
         {
             "timestamp_and_note": f"prefix={prefix}",
-            "command_line": " ".join(sys.argv),
+            "cmd_args": " ".join(sys.argv),
             "pretrained_model": {"model_id_or_path": args.model, "hf_cache_dir": hf_cache},
-            "training_hyperparameters": {
+            "train_hyperparameters": {
                 "csv": str(args.csv.resolve()),
                 "epochs": args.epochs,
                 "batch": args.batch,
@@ -325,19 +270,11 @@ def main() -> None:
                 "device_arg": args.device,
             },
             "validation_and_test_metrics": metrics,
-            "saved_files": {
-                "finetuned_huggingface_dir": str(hf_out),
-                "finetuned_state_dict": str(weights_path),
-                "params_submit_copy": str(submit_weights),
-            },
+            "saved_files": {"finetuned_huggingface_dir": str(hf_out)},
         },
     )
     copy_script_source(meta_py, run_dir / f"{prefix}.py")
-    print(
-        f"[save] Finetune_Params/{prefix}/ has written {prefix}_finetuned_hf, "
-        f"{weights_name}, {prefix}.txt, {prefix}.py\n"
-        f"       params_submit/roberta.pth (copy of state_dict)"
-    )
+    print(f"[save] Finetune_Params/{prefix}/ written: {prefix}_finetuned_hf, {prefix}.txt, {prefix}.py")
 
 
 if __name__ == "__main__":

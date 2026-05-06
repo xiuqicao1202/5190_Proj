@@ -13,7 +13,7 @@ from pathlib import Path
 
 import torch
 
-from model import Model, resolve_roberta_pth
+from model import Model
 
 
 def _script_dir() -> Path:
@@ -64,15 +64,12 @@ def main() -> None:
     if not csv_path.is_file():
         raise SystemExit(f"CSV not found: {csv_path}")
 
-    pth = resolve_roberta_pth()
-    if pth is None:
-        print("Warning: no roberta.pth beside model_RoBERTa.py or under params_submit/ — using base weights only.")
+    pth = _script_dir() / "roberta.pth"
 
     titles, labels = load_processed_title_label(csv_path)
 
     device = torch.device(args.device)
-    model = Model()
-    model.classifier.to(device)
+    model = Model(device=device)
     model.eval()
 
     preds: list[str] = []
@@ -84,7 +81,7 @@ def main() -> None:
     correct = sum(int(p == y) for p, y in zip(preds, labels))
     acc = correct / n if n else 0.0
     print(f"n={n}  accuracy={acc:.4f}  device={device}")
-    if pth is not None:
+    if pth.is_file():
         print(f"weights: {pth}")
 
 

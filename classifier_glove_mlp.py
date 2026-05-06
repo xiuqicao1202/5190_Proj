@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import random
 import sys
 import time
 from pathlib import Path
@@ -171,9 +172,12 @@ def main() -> None:
     ensure_glove_100d(glove_txt, auto_download=not args.skip_glove_download)
     print(f"[paths] project={proj}\n        Pretrained_Params GloVe -> {glove_txt}")
 
+    random.seed(args.seed)
+    np.random.seed(args.seed)
     torch.manual_seed(args.seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(args.seed)
+    torch.cuda.manual_seed_all(args.seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
     device = resolve_torch_device(args.device)
     if device.type == "cuda":

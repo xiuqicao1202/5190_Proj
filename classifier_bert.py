@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import random
 import sys
 import time
 from pathlib import Path
@@ -139,7 +140,12 @@ def main() -> None:
     hf_cache = str(huggingface_pretrained_cache(proj))
     print(f"[paths] project={proj}\n        HuggingFace pretrained cache: {hf_cache}")
 
+    random.seed(args.seed)
+    np.random.seed(args.seed)
     torch.manual_seed(args.seed)
+    torch.cuda.manual_seed_all(args.seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
     t0 = time.perf_counter()
     df = pd.read_csv(args.csv)
