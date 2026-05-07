@@ -276,6 +276,30 @@ def main() -> None:
     copy_script_source(meta_py, run_dir / f"{prefix}.py")
     print(f"[save] Finetune_Params/{prefix}/ written: {prefix}_finetuned_hf, {prefix}.txt, {prefix}.py")
 
+    # Save weights and tokenizer into a single .pt file for submit_roberta/model.py
+    import os, tempfile as _tmpfile
+    params_submit_dir = Path(__file__).parent / "params_submit"
+    params_submit_dir.mkdir(exist_ok=True)
+    pt_path = params_submit_dir / "roberta_model.pt"
+    with _tmpfile.TemporaryDirectory() as _tmp:
+        tokenizer.save_pretrained(_tmp)
+        _tok_files = {
+            fname: open(os.path.join(_tmp, fname), "rb").read()
+            for fname in os.listdir(_tmp)
+            if os.path.isfile(os.path.join(_tmp, fname))
+        }
+    torch.save(
+        {
+            "state_dict": model.state_dict(),
+            "config": model.config.to_dict(),
+            "classes": ["NBC", "FoxNews"],   # index 0=NBC, 1=FoxNews  (matches label_from_url)
+            "max_len": args.max_len,
+            "tokenizer_files": _tok_files,
+        },
+        pt_path,
+    )
+    print(f"[save] params_submit/roberta_model.pt (with tokenizer) written: {pt_path}")
+
 
 if __name__ == "__main__":
     main()
